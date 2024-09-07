@@ -1,14 +1,28 @@
 const express = require("express");
 const app = express();
-const path = require('path');
+const path = require("path");
 
 let messages = []; // Array to store all messages
 
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'components', 'home.html'));
+  //res.sendFile(__dirname + '..'+ '/index.html');
+  //res.sendFile(path.join(__dirname, "/components", "/home.html"));
+  //res.write(__dirname);
+  //res.end();
+  //res.sendFile(path.join(__dirname, '..', 'components', 'home.html'));
+  //res.write(path.join(__dirname, '..', 'components'));
+  res.sendFile(path.join(__dirname, '..', 'components', 'home.html'))
+
+  //res.end();
 });
+
+let msg1 = {
+  deviceID: "123",
+  keyAlias: "asdf",
+  publicKey: "zxcvzcxvzcxv",
+};
 
 app.post("/keypair-success", (req, res) => {
   try {
