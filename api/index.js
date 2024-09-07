@@ -1,6 +1,6 @@
 const express = require("express");
 const app = express();
-const path = require('path');
+const path = require("path");
 
 let latestMessage = "test1";
 
@@ -15,10 +15,16 @@ app.get("/", (req, res) => {
   //res.end();
   //res.sendFile(path.join(__dirname, '..', 'components', 'home.html'));
   //res.write(path.join(__dirname, '..', 'components'));
-  res.sendFile(path.join(__dirname, '..', 'components', 'home.html'))
+  res.sendFile(path.join(__dirname, "..", "components", "home.html"));
 
   //res.end();
 });
+
+let msg1 = {
+  deviceID: "123",
+  keyAlias: "asdf",
+  publicKey: "zxcvzcxvzcxv",
+};
 
 app.post("/keypair-success", (req, res) => {
   try {
