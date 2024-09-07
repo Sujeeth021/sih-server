@@ -2,22 +2,12 @@ const express = require("express");
 const app = express();
 const path = require('path');
 
-let latestMessage = "test1";
+let messages = []; // Array to store all messages
 
 app.use(express.json());
 
-//app.get("/", (req, res) => res.send("Express on Vercel"));
-
 app.get("/", (req, res) => {
-  //res.sendFile(__dirname + '..'+ '/index.html');
-  //res.sendFile(path.join(__dirname, "/components", "/home.html"));
-  //res.write(__dirname);
-  //res.end();
-  //res.sendFile(path.join(__dirname, '..', 'components', 'home.html'));
-  //res.write(path.join(__dirname, '..', 'components'));
-  res.sendFile(path.join(__dirname, '..', 'components', 'home.html'))
-
-  //res.end();
+  res.sendFile(path.join(__dirname, '..', 'components', 'home.html'));
 });
 
 app.post("/keypair-success", (req, res) => {
@@ -25,8 +15,8 @@ app.post("/keypair-success", (req, res) => {
     const message = req.body.message;
     console.log("Received message from Flutter app:", message);
 
-    // Update the latest message
-    latestMessage = message;
+    // Append the new message to the messages array
+    messages.push(message);
 
     // Respond with the message back to the Flutter app
     res.json({ receivedMessage: message });
@@ -37,22 +27,24 @@ app.post("/keypair-success", (req, res) => {
 });
 
 app.get("/events", (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
+  // res.setHeader("Content-Type", "text/event-stream");
+  // res.setHeader("Cache-Control", "no-cache");
+  // res.setHeader("Connection", "keep-alive");
 
-  // Send the latest message
-  res.write(`data: ${latestMessage}\n\n`);
+  // Send all stored messages
+  messages.forEach((message) => {
+    res.write(`data: ${message}\n\n`);
+  });
 
-  //// Keep the connection open
-  //const intervalId = setInterval(() => {
-  //  res.write(`data: ${latestMessage}\n\n`);
-  //}, 5000); // Send an update every 5 seconds
+  // Keep the connection open for future messages (optional)
+  // const intervalId = setInterval(() => {
+  //   res.write(`data: ${latestMessage}\n\n`);
+  // }, 5000); // Send an update every 5 seconds
   //
-  //req.on('close', () => {
-  //clearInterval(intervalId);
-  //
-  //});
+  // req.on('close', () => {
+  //   clearInterval(intervalId);
+  // });
+
   res.end();
 });
 
