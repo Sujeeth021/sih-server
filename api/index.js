@@ -1,10 +1,21 @@
-const express = require("express");
+const express = require('express');
+const multer = require('multer');
+const path = require('path');
 const app = express();
 const path = require('path');
 
+let latestMessage = "test1";
+let latestImageData = null; // To store the image data
 let messages = []; // Array to store all parsed message objects
-
+// Middleware to parse JSON bodies
 app.use(express.json());
+
+// Configure multer to handle file uploads in memory
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
+// Serve static files (e.g., HTML files)
+app.use(express.static(path.join(__dirname, '../components')));
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'components', 'home.html'));
@@ -15,10 +26,8 @@ app.post("/keypair-success", (req, res) => {
     const message = req.body.message;
     console.log("Received message from Flutter app:", message);
 
-    if (!message) {
-      // If message is undefined or null, return an error response
-      return res.status(400).json({ error: "Message is required" });
-    }
+    // Update the latest message
+    latestMessage = message;
 
     // Parse the message string into an object with renamed keys
     const parsedMessage = parseMessage(message);
@@ -91,6 +100,50 @@ app.get("/events", (req, res) => {
 
   // Send the HTML response
   res.send(tableHTML);
+});
+
+// Handle image uploads (in-memory)
+app.post("/upload-image", upload.single('image'), (req, res) => {
+  console.log("Request body:", req.body);
+  console.log("Request file:", req.file);
+
+  if (!req.file) {
+    return res.status(400).json({ error: "No file uploaded." });
+  }
+
+  // Store the image data as a Base64 string
+  latestImageData = req.file.buffer.toString('base64');
+
+  res.status(200).json({ message: "Image uploaded successfully." });
+});
+
+// Endpoint to get the latest message
+app.get('/latest-message', (req, res) => {
+  res.json({ message: latestMessage });
+});
+
+// Endpoint to get the latest image as a data URL
+app.get('/latest-image', (req, res) => {
+  if (latestImageData) {
+    res.send(`<img src="data:image/jpeg;base64,${latestImageData}" alt="Uploaded Image" style="max-width: 100%; height: auto;"/>`);
+  } else {
+    res.send('No image available');
+  }
+});
+
+// Serve the latest message via Server-Sent Events
+app.get("/events", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  // Send the latest message
+  res.write(`data: ${latestMessage}\n\n`);
+
+  // Keep the connection open
+  req.on('close', () => {
+    console.log('Connection closed');
+  });
 });
 
 app.listen(3000, () => console.log("Server ready on port 3000."));
