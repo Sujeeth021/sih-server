@@ -170,6 +170,19 @@ function parseMessage(message) {
 
   return parsedObject;
 }
+app.post('/signed-key', (req, res) => {
+  try {
+    const signedKey = req.body.signedKey;
+    console.log("Received signed key from Flutter app:", signedKey);
+
+    // Process the signed key as needed (e.g., store it, verify it, etc.)
+
+    res.status(200).json({ message: "Signed key received successfully." });
+  } catch (error) {
+    console.error("Error processing signed key:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 // Helper function to check if the key pair already exists in the messages array
 function keyPairExists(parsedMessage) {
