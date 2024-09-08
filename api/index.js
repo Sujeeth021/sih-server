@@ -1,125 +1,127 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const express = require("express");
 const app = express();
+const path = require('path');
 
-let messages = []; // Array to store all messages
-let latestMessage = "test1";
-let latestImage = ""; // To store the filename of the latest image
+let messages = []; // Array to store all parsed message objects
 
-// Get the absolute path for the uploads directory
-const uploadsDir = path.join(__dirname, '../uploads');
-
-// Middleware to parse JSON bodies
 app.use(express.json());
 
-
-let msg1 = {
-  deviceID: "123",
-  keyAlias: "asdf",
-  publicKey: "zxcvzcxvzcxv",
-};
-
-// Configure multer to handle file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    // Ensure the directory exists
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    cb(null, uploadsDir); // Directory where images will be saved
-  },
-  filename: (req, file, cb) => {
-    cb(null, file.originalname); // Filename to be saved as
-  }
-});
-
-const upload = multer({ storage: storage });
-
-// Serve static files from the 'uploads' directory
-app.use('/uploads', express.static(uploadsDir));
-
-// Serve static files (e.g., HTML files)
-app.use(express.static(path.join(__dirname, '../components')));
-
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, '../components', 'home.html'));
+  res.sendFile(path.join(__dirname, '..', 'components', 'home.html'));
 });
 
-// Handle keypair success messages
 app.post("/keypair-success", (req, res) => {
   try {
     const message = req.body.message;
     console.log("Received message from Flutter app:", message);
 
-    // Append the new message to the messages array
-    messages.push(message);
+    if (!message) {
+      // If message is undefined or null, return an error response
+      return res.status(400).json({ error: "Message is required" });
+    }
 
-    // Respond with the message back to the Flutter app
-    res.json({ receivedMessage: message });
+    // Parse the message string into an object with renamed keys
+    const parsedMessage = parseMessage(message);
+
+    // Check if the key pair already exists in the messages array
+    if (!keyPairExists(parsedMessage)) {
+      // Append the parsed object to the messages array if it doesn't already exist
+      messages.push(parsedMessage);
+    } else {
+      console.log("Key pair already exists, not appending.");
+    }
+
+    // Respond with the parsed message back to the Flutter app
+    res.json({ receivedMessage: parsedMessage });
   } catch (error) {
     console.error("Error processing request:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// Handle image uploads
-app.post("/upload-image", upload.single('image'), (req, res) => {
-  console.log("Request body:", req.body);
-  console.log("Request file:", req.file);
-
-  if (!req.file) {
-    return res.status(400).json({ error: "No file uploaded." });
-  }
-
-  // Update the latest image URL
-  latestImage = req.file.filename;
-
-  const imageUrl = `/uploads/${req.file.filename}`;
-  console.log("Image uploaded:", req.file);
-  res.status(200).json({ message: "Image uploaded successfully.", imageUrl: imageUrl });
-});
-
-// Endpoint to get the latest message
-app.get('/latest-message', (req, res) => {
-  res.json({ message: latestMessage });
-});
-
-// Endpoint to get the latest image
-app.get('/latest-image', (req, res) => {
-  if (latestImage) {
-    const imageUrl = `/uploads/${latestImage}`;
-    res.json({ imageUrl: imageUrl });
-  } else {
-    res.json({ error: "No image available" });
-  }
-});
-
-// Serve the latest message via Server-Sent Events
 app.get("/events", (req, res) => {
-  // res.setHeader("Content-Type", "text/event-stream");
-  // res.setHeader("Cache-Control", "no-cache");
-  // res.setHeader("Connection", "keep-alive");
+  // Construct the HTML table
+  let tableHTML = `
+    <html>
+    <head>
+      <title>Key Pair Events</title>
+      <style>
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        th, td {
+          border: 1px solid #ddd;
+          padding: 8px;
+          text-align: left;
+        }
+        th {
+          background-color: #f2f2f2;
+        }
+      </style>
+    </head>
+    <body>
+      <h2>Key Pair Events</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Device ID</th>
+            <th>Alias</th>
+            <th>Public Key</th>
+          </tr>
+        </thead>
+        <tbody>`;
 
-  // Send all stored messages
+  // Populate the table with data from the messages array
   messages.forEach((message) => {
-    res.write(`data: ${message}\n\n`);
+    tableHTML += `
+      <tr>
+        <td>${message.deviceID}</td>
+        <td>${message.alias}</td>
+        <td>${message.publicKey}</td>
+      </tr>`;
   });
 
-  // Keep the connection open for future messages (optional)
-  // const intervalId = setInterval(() => {
-  //   res.write(`data: ${latestMessage}\n\n`);
-  // }, 5000); // Send an update every 5 seconds
-  //
-  // req.on('close', () => {
-  //   clearInterval(intervalId);
-  // });
+  // Close the table and HTML tags
+  tableHTML += `
+        </tbody>
+      </table>
+    </body>
+    </html>`;
 
-  res.end();
+  // Send the HTML response
+  res.send(tableHTML);
 });
 
 app.listen(3000, () => console.log("Server ready on port 3000."));
 
 module.exports = app;
+
+// Helper function to parse the incoming message string into an object with renamed keys
+function parseMessage(message) {
+  const keyValuePairs = message.split(',');
+  const parsedObject = {};
+
+  keyValuePairs.forEach(pair => {
+    const [key, value] = pair.split(':').map(str => str.trim());
+
+    // Rename the keys to deviceID, alias, and publicKey
+    if (key === 'Device ID') {
+      parsedObject['deviceID'] = value;
+    } else if (key.includes('alias')) {
+      parsedObject['alias'] = value;
+    } else if (key === 'Public Key') {
+      parsedObject['publicKey'] = value;
+    }
+  });
+
+  return parsedObject;
+}
+
+// Helper function to check if the key pair already exists in the messages array
+function keyPairExists(parsedMessage) {
+  return messages.some(existingMessage => {
+    return existingMessage['deviceID'] === parsedMessage['deviceID'] &&
+           existingMessage['publicKey'] === parsedMessage['publicKey'];
+  });
+}
