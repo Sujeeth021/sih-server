@@ -2,44 +2,19 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { Readable } = require('stream');
 const app = express();
 
-let messages = []; // Array to store all messages
 let latestMessage = "test1";
-let latestImage = ""; // To store the filename of the latest image
+let latestImageData = null; // To store the image data
 
-// Get the absolute path for the uploads directory
-const uploadsDir = path.join(__dirname, '../uploads');
 
 // Middleware to parse JSON bodies
 app.use(express.json());
 
-
-let msg1 = {
-  deviceID: "123",
-  keyAlias: "asdf",
-  publicKey: "zxcvzcxvzcxv",
-};
-
-// Configure multer to handle file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    // Ensure the directory exists
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    cb(null, uploadsDir); // Directory where images will be saved
-  },
-  filename: (req, file, cb) => {
-    cb(null, file.originalname); // Filename to be saved as
-  }
-});
-
+// Configure multer to handle file uploads in memory
+const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
-
-// Serve static files from the 'uploads' directory
-app.use('/uploads', express.static(uploadsDir));
 
 // Serve static files (e.g., HTML files)
 app.use(express.static(path.join(__dirname, '../components')));
@@ -54,8 +29,8 @@ app.post("/keypair-success", (req, res) => {
     const message = req.body.message;
     console.log("Received message from Flutter app:", message);
 
-    // Append the new message to the messages array
-    messages.push(message);
+    // Update the latest message
+    latestMessage = message;
 
     // Respond with the message back to the Flutter app
     res.json({ receivedMessage: message });
@@ -65,7 +40,7 @@ app.post("/keypair-success", (req, res) => {
   }
 });
 
-// Handle image uploads
+// Handle image uploads (in-memory)
 app.post("/upload-image", upload.single('image'), (req, res) => {
   console.log("Request body:", req.body);
   console.log("Request file:", req.file);
@@ -74,12 +49,10 @@ app.post("/upload-image", upload.single('image'), (req, res) => {
     return res.status(400).json({ error: "No file uploaded." });
   }
 
-  // Update the latest image URL
-  latestImage = req.file.filename;
+  // Store the image data
+  latestImageData = req.file.buffer.toString('base64');
 
-  const imageUrl = `/uploads/${req.file.filename}`;
-  console.log("Image uploaded:", req.file);
-  res.status(200).json({ message: "Image uploaded successfully.", imageUrl: imageUrl });
+  res.status(200).json({ message: "Image uploaded successfully." });
 });
 
 // Endpoint to get the latest message
@@ -89,9 +62,8 @@ app.get('/latest-message', (req, res) => {
 
 // Endpoint to get the latest image
 app.get('/latest-image', (req, res) => {
-  if (latestImage) {
-    const imageUrl = `/uploads/${latestImage}`;
-    res.json({ imageUrl: imageUrl });
+  if (latestImageData) {
+    res.json({ imageData: latestImageData });
   } else {
     res.json({ error: "No image available" });
   }
@@ -99,25 +71,17 @@ app.get('/latest-image', (req, res) => {
 
 // Serve the latest message via Server-Sent Events
 app.get("/events", (req, res) => {
-  // res.setHeader("Content-Type", "text/event-stream");
-  // res.setHeader("Cache-Control", "no-cache");
-  // res.setHeader("Connection", "keep-alive");
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
 
-  // Send all stored messages
-  messages.forEach((message) => {
-    res.write(`data: ${message}\n\n`);
+  // Send the latest message
+  res.write(`data: ${latestMessage}\n\n`);
+
+  // Keep the connection open
+  req.on('close', () => {
+    console.log('Connection closed');
   });
-
-  // Keep the connection open for future messages (optional)
-  // const intervalId = setInterval(() => {
-  //   res.write(`data: ${latestMessage}\n\n`);
-  // }, 5000); // Send an update every 5 seconds
-  //
-  // req.on('close', () => {
-  //   clearInterval(intervalId);
-  // });
-
-  res.end();
 });
 
 app.listen(3000, () => console.log("Server ready on port 3000."));
