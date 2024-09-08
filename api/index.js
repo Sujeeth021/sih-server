@@ -1,13 +1,10 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
-const { Readable } = require('stream');
 const app = express();
 
 let latestMessage = "test1";
 let latestImageData = null; // To store the image data
-
 
 // Middleware to parse JSON bodies
 app.use(express.json());
@@ -49,7 +46,7 @@ app.post("/upload-image", upload.single('image'), (req, res) => {
     return res.status(400).json({ error: "No file uploaded." });
   }
 
-  // Store the image data
+  // Store the image data as a Base64 string
   latestImageData = req.file.buffer.toString('base64');
 
   res.status(200).json({ message: "Image uploaded successfully." });
@@ -60,12 +57,12 @@ app.get('/latest-message', (req, res) => {
   res.json({ message: latestMessage });
 });
 
-// Endpoint to get the latest image
+// Endpoint to get the latest image as a data URL
 app.get('/latest-image', (req, res) => {
   if (latestImageData) {
-    res.json({ imageData: latestImageData });
+    res.send(`<img src="data:image/jpeg;base64,${latestImageData}" alt="Uploaded Image" style="max-width: 100%; height: auto;"/>`);
   } else {
-    res.json({ error: "No image available" });
+    res.send('No image available');
   }
 });
 
