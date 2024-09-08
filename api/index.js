@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const app = express();
-const path = require('path');
+// const path = require('path');
 
 let latestMessage = "test1";
 let latestImageData = null; // To store the image data
