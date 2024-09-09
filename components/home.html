@@ -6,14 +6,52 @@
     <title>Flutter Message</title>
 </head>
 <body>
-    <h1>Message from Flutter App:</h1>
-    <p id="message">Waiting for message...</p>
+
+    <h2>Uploaded Image:</h2>
+    <img id="uploaded-image" src="" alt="Uploaded Image" style="max-width: 400px; height: auto;"/>
+
+    <h2>Signed Key:</h2>
+    <p id="signed-key">Waiting for signed key...</p>
 
     <script>
-        const eventSource = new EventSource('/events');
+        // Function to fetch the latest message using Server-Sent Events
+        const eventSource = new EventSource('/latest-message');
         eventSource.onmessage = function(event) {
             document.getElementById('message').textContent = event.data;
         };
+
+        // Function to fetch the latest image
+        function fetchImage() {
+            fetch('/latest-image')
+                .then(response => response.text())
+                .then(data => {
+                    if (data.includes('<img src="data:image/jpeg;base64,')) {
+                        const base64Image = data.match(/data:image\/jpeg;base64,([^"]+)/)[0];
+                        document.getElementById('uploaded-image').src = base64Image;
+                    } else {
+                        document.getElementById('uploaded-image').src = ''; // Clear the image if none is available
+                    }
+                })
+                .catch(error => console.error('Error fetching image:', error));
+        }
+
+        // Function to fetch the latest signed key
+        function fetchSignedKey() {
+            fetch('/latest-signed-key')
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('signed-key').textContent = data;
+                })
+                .catch(error => console.error('Error fetching signed key:', error));
+        }
+
+        // Fetch image and signed key on page load
+        fetchImage();
+        fetchSignedKey();
+
+        // Optionally, set up periodic refresh
+        setInterval(fetchImage, 5000); // Fetch image every 5 seconds
+        setInterval(fetchSignedKey, 5000); // Fetch signed key every 5 seconds
     </script>
 </body>
 </html>
