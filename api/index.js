@@ -7,6 +7,7 @@ const app = express();
 let latestMessage = "test1";
 let latestImageData = null; // To store the image data
 let messages = []; // Array to store all parsed message objects
+let latestSignedKey = null;
 // Middleware to parse JSON bodies
 app.use(express.json());
 
@@ -176,12 +177,25 @@ app.post('/signed-key', (req, res) => {
     console.log("Received signed key from Flutter app:", signedKey);
 
     // Process the signed key as needed (e.g., store it, verify it, etc.)
+    const signedKeyPrefix = "Key Accessed Successfully. Signed Data: ";
+    let signkey = signedKey;
 
+    if (signkey.startsWith(signedKeyPrefix)) {
+      signkey = signkey.substring(signedKeyPrefix.length).trim();
+    }
+
+    // Update the latest signed key
+    latestSignedKey = signkey;
     res.status(200).json({ message: "Signed key received successfully." });
   } catch (error) {
     console.error("Error processing signed key:", error);
     res.status(500).json({ error: "Internal server error" });
   }
+});
+
+// Endpoint to get the latest signed key
+app.get('/latest-signed-key', (req, res) => {
+  res.send(latestSignedKey || 'No signed key available');
 });
 
 // Helper function to check if the key pair already exists in the messages array
